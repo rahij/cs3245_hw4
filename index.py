@@ -168,10 +168,18 @@ def get_tokens_from_line(line):
 
 def parse_xml_to_tokens(in_file):
   soup = BeautifulSoup(open(in_file), 'xml')
-  tokens = []
+  print in_file
+  tokens = {'Title': [], 'Abstract': [], 'all': []}
   for ele in soup.doc.contents:
     if ele not in EXCLUDE_XML_CHILDREN and ele['name'] in RELEVANT_TAG_NAMES:
-      tokens.extend(get_tokens_from_line(ele.contents[0]))
+      tokens['all'].extend(get_tokens_from_line(ele.contents[0]))
+  for ele in soup.doc.contents:
+    if ele not in EXCLUDE_XML_CHILDREN and ele['name'] == 'Title':
+      tokens['Title'].extend(get_tokens_from_line(ele.contents[0]))
+  for ele in soup.doc.contents:
+    if ele not in EXCLUDE_XML_CHILDREN and ele['name'] == 'Abstract':
+      tokens['Abstract'].extend(get_tokens_from_line(ele.contents[0]))
+  print tokens
   return tokens
 
 def index_docs(documents_dir, dict_file, postings_file):
@@ -182,9 +190,13 @@ def index_docs(documents_dir, dict_file, postings_file):
   for file_name in file_list:
     print i
     in_file = documents_dir + file_name
-    token_list = parse_xml_to_tokens(in_file)
-    for token in token_list:
+    token_list_dict = parse_xml_to_tokens(in_file)
+    for token in token_list_dict['all']:
       write_doc_id_to_file(token, file_name)
+    for token in token_list_dict['Title']:
+      write_doc_id_to_file(token + ".Title", file_name)
+    for token in token_list_dict['Abstract']:
+      write_doc_id_to_file(token + ".Abstract", file_name)
     i = i + 1
 
   append_all_files_to_dict()

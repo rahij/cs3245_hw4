@@ -106,14 +106,14 @@ def get_doc_weight(doc_id):
   """
   return doc_weights[doc_id]
 
-def perform_query(token_list):
+def perform_query(token_list_dict):
   """
   Recursively evaluates query based on rank of precedence
   """
   scores = {}
   query_weight = 0
-  for term in token_list:
-    weight_term_with_query = compute_weight_term_with_query(term, token_list)
+  for term in token_list_dict['all']:
+    weight_term_with_query = compute_weight_term_with_query(term, token_list_dict['all'])
     query_weight += math.pow(weight_term_with_query, 2)
     normalized_token = normalize_token(term)
     postings_list = get_doc_ids_for_token(normalized_token)
@@ -123,6 +123,31 @@ def perform_query(token_list):
       if doc_id not in scores:
         scores[doc_id] = 0
       scores[doc_id] += weight_term_with_query * weight_term_with_doc
+  query_weight = 0
+  for term in token_list_dict['title']:
+    weight_term_with_query = compute_weight_term_with_query(term, token_list_dict['title'])
+    query_weight += math.pow(weight_term_with_query, 2)
+    normalized_token = normalize_token(term)
+    postings_list = get_doc_ids_for_token(normalized_token)
+    for doc_term in postings_list:
+      doc_id, tf = doc_term.split(',')
+      weight_term_with_doc = compute_weight_term_with_doc(normalized_token, doc_id, tf)
+      if doc_id not in scores:
+        scores[doc_id] = 0
+      scores[doc_id] += weight_term_with_query * weight_term_with_doc
+  query_weight = 0
+  for term in token_list_dict['description']:
+    weight_term_with_query = compute_weight_term_with_query(term, token_list_dict['description'])
+    query_weight += math.pow(weight_term_with_query, 2)
+    normalized_token = normalize_token(term)
+    postings_list = get_doc_ids_for_token(normalized_token)
+    for doc_term in postings_list:
+      doc_id, tf = doc_term.split(',')
+      weight_term_with_doc = compute_weight_term_with_doc(normalized_token, doc_id, tf)
+      if doc_id not in scores:
+        scores[doc_id] = 0
+      scores[doc_id] += weight_term_with_query * weight_term_with_doc
+
 
   query_weight = math.pow(query_weight, 0.5)
   for doc_id in scores:
@@ -166,15 +191,30 @@ def get_tokens_from_line(line):
 
 def parse_xml_to_tokens(in_file):
   soup = BeautifulSoup(open(in_file), 'xml')
-  tokens = []
+  tokens = {'all': [], 'title': [], 'description': [], 'combined': []}
   for ele in soup.query.contents:
     if ele not in EXCLUDE_XML_CHILDREN and ele.name in RELEVANT_TAG_NAMES:
-      tokens.extend(get_tokens_from_line(ele.contents[0]))
+      tokens['combined'].extend(get_tokens_from_line(ele.contents[0]))
+      tokens['all'].extend(get_tokens_from_line(ele.contents[0]))
+    if ele not in EXCLUDE_XML_CHILDREN and ele.name == 'title':
+      ele_tokens = get_tokens_from_line(ele.contents[0])
+      ele_tokens_appended_with_title = []
+      for token in ele_tokens:
+        ele_tokens_appended_with_title.append(token + '.Title')
+      tokens['combined'].extend(ele_tokens_appended_with_title)
+      tokens['title'].extend(ele_tokens_appended_with_title)
+    if ele not in EXCLUDE_XML_CHILDREN and ele.name == 'description':
+      ele_tokens = get_tokens_from_line(ele.contents[0])
+      ele_tokens_appended_with_description = []
+      for token in ele_tokens:
+        ele_tokens_appended_with_description.append(token + '.Abstract')
+      tokens['combined'].extend(ele_tokens_appended_with_description)
+      tokens['description'].extend(ele_tokens_appended_with_description)
   return tokens
 
 def perform_queries():
-  token_list = parse_xml_to_tokens(query_file)
-  res = perform_query(token_list)
+  token_lists_dict = parse_xml_to_tokens(query_file)
+  res = perform_query(token_lists_dict)
   write_to_output_file(res)
 
 dict_file = postings_file = query_file = output_file = None
