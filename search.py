@@ -128,7 +128,9 @@ def perform_query(token_list):
   for doc_id in scores:
     scores[doc_id] = scores[doc_id]/query_weight
     scores[doc_id] = scores[doc_id]/get_doc_weight(doc_id)
-  return sorted(scores, key=scores.get, reverse=True)[0:10]
+  # to_return = sorted(scores, key=scores.get, reverse=True)[0:20]
+  scores = dict((k, v) for k, v in scores.items() if v >= 0.1)
+  return sorted(scores, key=scores.get, reverse=True)
 
 def exclude_unprintable_chars(token_list):
   to_return = []

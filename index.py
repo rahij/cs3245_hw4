@@ -12,7 +12,7 @@ import string
 
 TOKEN_FILES_DIR='dict_dir/'
 DOC_WEIGHTS_FILE = 'doc_weights.txt'
-NUM_FILES_TO_INDEX = 10
+NUM_FILES_TO_INDEX = -1
 LOG_BASE = 10
 RELEVANT_TAG_NAMES=set(['Title', 'Abstract'])
 EXCLUDE_XML_CHILDREN=set(['\n'])
@@ -178,12 +178,14 @@ def index_docs(documents_dir, dict_file, postings_file):
   create_dict_dir()
   indexer = {}
   file_list = get_list_of_files_to_index()
+  i = 0
   for file_name in file_list:
+    print i
     in_file = documents_dir + file_name
     token_list = parse_xml_to_tokens(in_file)
-    print in_file, token_list
     for token in token_list:
       write_doc_id_to_file(token, file_name)
+    i = i + 1
 
   append_all_files_to_dict()
   write_doc_weights_to_file()
