@@ -7,10 +7,14 @@ import Queue
 import string
 import nltk
 import math
+from nltk.tokenize import word_tokenize, sent_tokenize
+from bs4 import BeautifulSoup
 
 POINTER_DOCUMENTS_ALL = 0
 LOG_BASE = 10
 DOC_WEIGHTS_FILE='doc_weights.txt'
+RELEVANT_TAG_NAMES=set(['title', 'description'])
+EXCLUDE_XML_CHILDREN=set(['\n'])
 
 def usage():
   print "usage: " + sys.argv[0] + " -d dictionary-file -p postings-file -q file-of-queries -o output-file-of-results"
@@ -63,13 +67,9 @@ def write_to_output_file(line):
   """
   Writes result line to output file
   """
-  prepend_char = "\n"
-  if not os.path.isfile(output_file):
-    output_writer = open(output_file, "w")
-    prepend_char = ""
-  else:
-    output_writer = open(output_file, "a")
-  output_writer.write(prepend_char + line)
+  output_writer = open(output_file, "w")
+  for l in line:
+    output_writer.write(l + "\n")
 
 def normalize_token(token):
   return stemmer.stem(token.lower())
@@ -106,15 +106,14 @@ def get_doc_weight(doc_id):
   """
   return doc_weights[doc_id]
 
-def perform_query(query):
+def perform_query(token_list):
   """
   Recursively evaluates query based on rank of precedence
   """
   scores = {}
-  tokens = query.split()
   query_weight = 0
-  for term in tokens:
-    weight_term_with_query = compute_weight_term_with_query(term, query)
+  for term in token_list:
+    weight_term_with_query = compute_weight_term_with_query(term, token_list)
     query_weight += math.pow(weight_term_with_query, 2)
     normalized_token = normalize_token(term)
     postings_list = get_doc_ids_for_token(normalized_token)
@@ -131,13 +130,50 @@ def perform_query(query):
     scores[doc_id] = scores[doc_id]/get_doc_weight(doc_id)
   return sorted(scores, key=scores.get, reverse=True)[0:10]
 
+def exclude_unprintable_chars(token_list):
+  to_return = []
+  for i in xrange(0, len(token_list)):
+    token_list[i] = filter(lambda x: x in string.printable, token_list[i])
+    if token_list[i] != '':
+      to_return.append(token_list[i])
+  return to_return
+
+def stem_and_normalize_tokens(token_list):
+  """
+  Stems and normalizes tokens, gets rid of slashes to not interfere with file names
+  """
+  stemmer = nltk.stem.porter.PorterStemmer()
+  normalized_list = []
+  for i in xrange(len(token_list)):
+    token = stemmer.stem(token_list[i])
+    if "/" in token:
+      for t in token.split('/'):
+        normalized_list.append(t)
+    else:
+      normalized_list.append(token)
+  return [x for x in normalized_list if x]
+
+def get_tokens_from_line(line):
+  """
+  Converts a line into tokens by sent_tokenize, word_tokenize, case folding and normalizing special characters
+  """
+  token_list = map(lambda x: x.lower(),filter(lambda word: word not in ',-...:!$&()\"\'', [word for sent in sent_tokenize(line) for word in word_tokenize(sent)]))
+  token_list = stem_and_normalize_tokens(token_list)
+  token_list = exclude_unprintable_chars(token_list)
+  return token_list
+
+def parse_xml_to_tokens(in_file):
+  soup = BeautifulSoup(open(in_file), 'xml')
+  tokens = []
+  for ele in soup.query.contents:
+    if ele not in EXCLUDE_XML_CHILDREN and ele.name in RELEVANT_TAG_NAMES:
+      tokens.extend(get_tokens_from_line(ele.contents[0]))
+  return tokens
+
 def perform_queries():
-  query_file_reader = open(query_file, 'r')
-  postings_file_reader = open(postings_file, 'r')
-  for query in query_file_reader.readlines():
-    query = query.strip()
-    res = perform_query(query)
-    write_to_output_file(" ".join(res))
+  token_list = parse_xml_to_tokens(query_file)
+  res = perform_query(token_list)
+  write_to_output_file(res)
 
 dict_file = postings_file = query_file = output_file = None
 try:

@@ -180,10 +180,6 @@ def index_docs(documents_dir, dict_file, postings_file):
   file_list = get_list_of_files_to_index()
   for file_name in file_list:
     in_file = documents_dir + file_name
-      # for l in f.readlines():
-      #   token_list = get_tokens_from_line(l)
-      #   for token in token_list:
-      #     write_doc_id_to_file(token, file_name)
     token_list = parse_xml_to_tokens(in_file)
     print in_file, token_list
     for token in token_list:
